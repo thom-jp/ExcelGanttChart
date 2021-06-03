@@ -1,0 +1,447 @@
+Sub CreateGantt()
+    Const WEEK As Integer = 7
+    Const NUMBER_OF_TASKS As Integer = 100
+    
+    '#General Setting
+    Dim sh As Worksheet
+    Set sh = Workbooks.Add.Sheets(1)
+    ActiveWindow.DisplayGridlines = False
+    With sh.Cells.Font
+        .Name = "Meiryo UI"
+        .Size = 9
+    End With
+    
+    '#Header Setting
+    sh.Range("A1").Value = "Input Project Name Here"
+    With sh.Range("A1").Font
+        .Size = 22
+        .ThemeColor = xlThemeColorAccent1
+        .TintAndShade = -0.25
+    End With
+    
+    sh.Names.Add "R_ProjectStart", sh.Range("C3")
+    sh.Names.Add "R_DisplayWeek", sh.Range("C4")
+    
+    With sh.Range("R_ProjectStart")
+        .Value = Date
+        .Offset(0, -1).Value = "Project Start:"
+        .Offset(0, -1).HorizontalAlignment = xlRight
+    End With
+    
+    With sh.Range("R_DisplayWeek")
+        .Value = 1
+        .Offset(0, -1).Value = "Display Week:"
+        .Offset(0, -1).HorizontalAlignment = xlRight
+    End With
+    
+    Dim headerCursor As Range: Set headerCursor = sh.Range("A7")
+    Dim h
+    For Each h In Split(",TASK,ASSIGNED TO,START,END,START,END,PROGRESS,STATUS", ",")
+        headerCursor.Value = h
+        Set headerCursor = headerCursor.Offset(0, 1)
+    Next
+
+    Dim dateCursor As Range: Set dateCursor = headerCursor.Offset(-1, 0)
+    dateCursor.Formula = "=R_ProjectStart-WEEKDAY(R_ProjectStart)+1+((R_DisplayWeek-1)*7)"
+    dateCursor.NumberFormatLocal = "d"
+    With dateCursor.Offset(0, 1)
+        .FormulaR1C1 = "=RC[-1]+1"
+        .AutoFill Destination:=.Resize(1, WEEK * 5 - 1), Type:=xlFillDefault
+    End With
+    dateCursor.Resize(1, WEEK * 5).EntireColumn.ColumnWidth = 3
+    dateCursor.Resize(2, 1).EntireRow.HorizontalAlignment = xlCenter
+    
+    Dim weekdayCursor As Range
+    Set weekdayCursor = dateCursor.Offset(1, 0)
+    With weekdayCursor
+        .FormulaR1C1 = "=LEFT(TEXT(R[-1]C,""ddd""),1)"
+        .AutoFill Destination:=.Resize(1, 7 * 5), Type:=xlFillDefault
+    End With
+
+    Dim weekCursor As Range: Set weekCursor = dateCursor.Offset(-1, 0)
+    With weekCursor
+        .FormulaR1C1 = "=R[1]C"
+        .NumberFormatLocal = "yyyy/m/d;@"
+        .Font.Size = 12
+        With .Resize(1, WEEK)
+            .Merge
+            .HorizontalAlignment = xlLeft
+            .AutoFill .Resize(1, WEEK * 5)
+        End With
+    End With
+    
+    'Paint
+    Dim headerRange As Range
+    Set headerRange = sh.Range(Cells(headerCursor.Row, 1), headerCursor.Offset(0, WEEK * 5 - 1))
+    With headerRange.Interior
+        .Pattern = xlSolid
+        .PatternColorIndex = xlAutomatic
+        .ThemeColor = xlThemeColorLight1
+        .TintAndShade = 0.5
+        .PatternTintAndShade = 0
+    End With
+    headerRange.Font.Color = rgbWhite
+
+    With weekCursor.Resize(1, WEEK * 5).Interior
+        .Pattern = xlSolid
+        .PatternColorIndex = xlAutomatic
+        .ThemeColor = xlThemeColorAccent1
+        .TintAndShade = 0.5
+        .PatternTintAndShade = 0
+    End With
+    
+    With dateCursor.Resize(1, WEEK * 5).Interior
+        .Pattern = xlSolid
+        .PatternColorIndex = xlAutomatic
+        .ThemeColor = xlThemeColorAccent1
+        .TintAndShade = 0.8
+        .PatternTintAndShade = 0
+    End With
+
+    Dim r As Range
+    Set r = weekCursor
+    For i = 1 To 5
+        With r.Resize(2, WEEK)
+            .Borders(xlDiagonalDown).LineStyle = xlNone
+            .Borders(xlDiagonalUp).LineStyle = xlNone
+            With .Borders(xlEdgeLeft)
+                .LineStyle = xlContinuous
+                .ThemeColor = 2
+                .TintAndShade = 0.5
+                .Weight = xlThin
+            End With
+            With .Borders(xlEdgeTop)
+                .LineStyle = xlContinuous
+                .ThemeColor = 2
+                .TintAndShade = 0.5
+                .Weight = xlThin
+            End With
+            .Borders(xlEdgeBottom).LineStyle = xlNone
+            With .Borders(xlEdgeRight)
+                .LineStyle = xlContinuous
+                .ThemeColor = 2
+                .TintAndShade = 0.5
+                .Weight = xlThin
+            End With
+            .Borders(xlInsideVertical).LineStyle = xlNone
+            .Borders(xlInsideHorizontal).LineStyle = xlNone
+        End With
+        Set r = r.Offset(0, 1)
+    Next
+    
+    Dim bodyRange As Range
+    Set bodyRange = headerRange.Offset(1, 0).Resize(NUMBER_OF_TASKS)
+    bodyRange.RowHeight = 16.5
+    With bodyRange
+        .Borders(xlDiagonalDown).LineStyle = xlNone
+        .Borders(xlDiagonalUp).LineStyle = xlNone
+        .Borders(xlEdgeLeft).LineStyle = xlNone
+        With .Borders(xlEdgeTop)
+            .LineStyle = xlContinuous
+            .ThemeColor = 2
+            .TintAndShade = 0.5
+            .Weight = xlThin
+        End With
+        With .Borders(xlEdgeBottom)
+            .LineStyle = xlContinuous
+            .ThemeColor = 2
+            .TintAndShade = 0.5
+            .Weight = xlThin
+        End With
+        .Borders(xlEdgeRight).LineStyle = xlNone
+        .Borders(xlInsideVertical).LineStyle = xlNone
+        With .Borders(xlInsideHorizontal)
+            .LineStyle = xlContinuous
+            .ThemeColor = 2
+            .TintAndShade = 0.5
+            .Weight = xlThin
+        End With
+    End With
+    
+    'Gantt Bar
+    Dim ganttRange As Range
+    Set ganttRange = weekdayCursor.Offset(1, 0).Resize(NUMBER_OF_TASKS, WEEK * 5)
+    ganttRange.FormulaR1C1 = "=IF(AND(RC6<=R6C,R6C<=RC7),""≫"","""")"
+    With ganttRange
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlCenter
+    End With
+    With ganttRange.Font
+        .Size = 16
+        .ThemeColor = xlThemeColorAccent1
+        .TintAndShade = -0.5
+    End With
+    
+    With ganttRange
+        .FormatConditions.AddColorScale ColorScaleType:=2
+        .FormatConditions(.FormatConditions.Count).SetFirstPriority
+        .FormatConditions(1).ColorScaleCriteria(1).Type = xlConditionValueLowestValue
+        With .FormatConditions(1).ColorScaleCriteria(1).FormatColor
+            .Color = 2650623
+            .TintAndShade = 0
+        End With
+        .FormatConditions(1).ColorScaleCriteria(2).Type = xlConditionValueHighestValue
+        With .FormatConditions(1).ColorScaleCriteria(2).FormatColor
+            .Color = 10285055
+            .TintAndShade = 0
+        End With
+        .FormatConditions.Add Type:=xlExpression, Formula1:="=AND($D8<=J$6,J$6<=$E8)"
+        .FormatConditions(.FormatConditions.Count).SetFirstPriority
+        With .FormatConditions(1).Interior
+            .PatternColorIndex = xlAutomatic
+            .ThemeColor = xlThemeColorAccent1
+            .TintAndShade = 0.25
+        End With
+        .FormatConditions(1).StopIfTrue = False
+    End With
+
+    'Progress Data Bar
+    With sh.Range("H8").Resize(NUMBER_OF_TASKS)
+        .HorizontalAlignment = xlCenter
+        .NumberFormatLocal = "0%"
+        .FormatConditions.AddDatabar
+        .FormatConditions(.FormatConditions.Count).ShowValue = True
+        .FormatConditions(.FormatConditions.Count).SetFirstPriority
+        With .FormatConditions(1)
+            .MinPoint.Modify newtype:=xlConditionValueNumber, newvalue:=0
+            .MaxPoint.Modify newtype:=xlConditionValueNumber, newvalue:=1
+        End With
+        With .FormatConditions(1).BarColor
+            .ThemeColor = xlThemeColorAccent1
+            .TintAndShade = 0.6
+        End With
+        .FormatConditions(1).BarFillType = xlDataBarFillSolid
+        .FormatConditions(1).Direction = xlContext
+        .FormatConditions(1).NegativeBarFormat.ColorType = xlDataBarColor
+        .FormatConditions(1).BarBorder.Type = xlDataBarBorderNone
+        .FormatConditions(1).AxisPosition = xlDataBarAxisAutomatic
+        With .FormatConditions(1).AxisColor
+            .Color = 0
+            .TintAndShade = 0
+        End With
+        With .FormatConditions(1).NegativeBarFormat.Color
+            .Color = 255
+            .TintAndShade = 0
+        End With
+    End With
+    
+    'Highlight Today
+    With ganttRange.Offset(-2, 0).Resize(ganttRange.Rows.Count + 2)
+        .FormatConditions.Add Type:=xlExpression, Formula1:="=J$6=TODAY()"
+        .FormatConditions(.FormatConditions.Count).SetFirstPriority
+        With .FormatConditions(1).Borders(xlLeft)
+            .LineStyle = xlContinuous
+            .Color = -16776961
+            .TintAndShade = 0
+            .Weight = xlThin
+        End With
+        With .FormatConditions(1).Borders(xlRight)
+            .LineStyle = xlContinuous
+            .Color = -16776961
+            .TintAndShade = 0
+            .Weight = xlThin
+        End With
+        .FormatConditions(1).StopIfTrue = False
+    End With
+    
+    'Scroll Bars
+    sh.ScrollBars.Add(weekCursor.Left, weekCursor.Top - 16.5, weekCursor.Resize(1, WEEK * 5).Width, 14).Select
+    With Selection
+        .Value = 1
+        .Min = 1
+        .Max = 52
+        .SmallChange = 1
+        .LargeChange = 10
+        .LinkedCell = "R_DisplayWeek"
+        .Display3DShading = False
+    End With
+
+    sh.Range("I8").FormulaR1C1 = "=IF(OR(ISBLANK(RC[-5]),ISBLANK(RC[-4])),""""," _
+        & vbLf & Space(4) & "IF(RC[-1]=1,""Completed""," _
+        & vbLf & Space(4 * 2) & "IF(AND(RC[-1]=0,RC[-5]>=TODAY()),""Not Started""," _
+        & vbLf & Space(4 * 3) & "IF(AND(RC[-1]<1,RC[-4]<TODAY()),""Over Due""," _
+        & vbLf & Space(4 * 4) & "IF((TODAY()-RC[-5])/(RC[-4]-RC[-5]+1)>=RC[-1],""Delay""," _
+        & vbLf & Space(4 * 5) & """In Progress"")))))"
+    
+    sh.Range("I8").AutoFill sh.Range("I8").Resize(NUMBER_OF_TASKS)
+    
+    'Status Format
+    With sh.Range("I8").Resize(NUMBER_OF_TASKS)
+        .HorizontalAlignment = xlCenter
+        .FormatConditions.Add Type:=xlTextString, String:="Completed", TextOperator:=xlContains
+        .FormatConditions(.FormatConditions.Count).SetFirstPriority
+        With .FormatConditions(1).Font
+            .Color = rgbGray
+            .TintAndShade = 0
+        End With
+        With .FormatConditions(1).Interior
+            .Color = rgbGainsboro
+            .TintAndShade = 0
+        End With
+        .FormatConditions(1).StopIfTrue = False
+        
+        .FormatConditions.Add Type:=xlTextString, String:="In Progress", TextOperator:=xlContains
+        .FormatConditions(.FormatConditions.Count).SetFirstPriority
+        With .FormatConditions(1).Font
+            .Color = rgbDarkGreen
+            .TintAndShade = 0
+        End With
+        With .FormatConditions(1).Interior
+            .Color = rgbHoneydew
+            .TintAndShade = 0
+        End With
+        .FormatConditions(1).StopIfTrue = False
+        
+        .FormatConditions.Add Type:=xlTextString, String:="Delay", TextOperator:=xlContains
+        .FormatConditions(.FormatConditions.Count).SetFirstPriority
+        With .FormatConditions(1).Font
+            .Color = rgbSienna
+            .TintAndShade = 0
+        End With
+        With .FormatConditions(1).Interior
+            .Color = rgbBisque
+            .TintAndShade = 0
+        End With
+        .FormatConditions(1).StopIfTrue = False
+        
+        .FormatConditions.Add Type:=xlTextString, String:="Over Due", TextOperator:=xlContains
+        .FormatConditions(.FormatConditions.Count).SetFirstPriority
+        With .FormatConditions(1).Font
+            .Color = rgbFireBrick
+            .TintAndShade = 0
+        End With
+        With .FormatConditions(1).Interior
+            .Color = rgbPink
+            .TintAndShade = 0
+        End With
+        .FormatConditions(1).StopIfTrue = False
+    
+        .FormatConditions.Add Type:=xlTextString, String:="Not Started", TextOperator:=xlContains
+        .FormatConditions(.FormatConditions.Count).SetFirstPriority
+        With .FormatConditions(1).Font
+            .Color = rgbDarkGray
+            .TintAndShade = 0
+        End With
+        With .FormatConditions(1).Interior
+            .Color = rgbWhite
+            .TintAndShade = 0
+        End With
+        .FormatConditions(1).StopIfTrue = False
+    End With
+    
+    'Format Start End Dates
+    With sh.Range("D7:E7").Interior
+        .Pattern = xlSolid
+        .PatternColorIndex = xlAutomatic
+        .ThemeColor = xlThemeColorAccent3
+        .TintAndShade = -0.25
+        .PatternTintAndShade = 0
+    End With
+    
+    With sh.Range("F7:G7").Interior
+        .Pattern = xlSolid
+        .PatternColorIndex = xlAutomatic
+        .ThemeColor = xlThemeColorAccent4
+        .TintAndShade = -0.25
+        .PatternTintAndShade = 0
+    End With
+
+    sh.Range("D6").Value = "PLANNED"
+    sh.Range("D6:E6").Merge
+    With sh.Range("D6:E6").Font
+        .ThemeColor = xlThemeColorAccent3
+        .TintAndShade = -0.25
+    End With
+    
+    sh.Range("F6").Value = "ACTUAL"
+    sh.Range("F6:G6").Merge
+    With sh.Range("F6:G6").Font
+        .ThemeColor = xlThemeColorAccent4
+        .TintAndShade = -0.25
+    End With
+    
+    With sh.Range("D7:E7,F7:G7").Borders(xlEdgeLeft)
+        .LineStyle = xlContinuous
+        .ThemeColor = 1
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+    With sh.Range("D7:E7,F7:G7").Borders(xlEdgeRight)
+        .LineStyle = xlContinuous
+        .ThemeColor = 1
+        .TintAndShade = 0
+        .Weight = xlThin
+    End With
+
+    'Current Task Picker
+    With sh.Range("A8").Resize(NUMBER_OF_TASKS)
+        .Interior.Color = rgbWhiteSmoke
+        .FormulaR1C1 = "=IF(AND(NOT(ISBLANK(RC[3])),RC[7]<1,RC[3]<=TODAY()),""▲"","""")"
+        .HorizontalAlignment = xlRight
+        .VerticalAlignment = xlCenter
+        .Orientation = -90
+        With .Font
+            .Size = 11
+            .Color = 192
+        End With
+    End With
+
+    'Phase Format
+    With sh.Range("B8").Resize(NUMBER_OF_TASKS)
+        .FormatConditions.Add Type:=xlTextString, String:="Phase", TextOperator:=xlBeginsWith
+        .FormatConditions(.FormatConditions.Count).SetFirstPriority
+        With .FormatConditions(1).Font
+            .Bold = True
+            .Italic = False
+            .ThemeColor = xlThemeColorAccent1
+            .TintAndShade = 0
+        End With
+        .FormatConditions(1).StopIfTrue = False
+    End With
+    
+    sh.Range("D8:G8").Resize(NUMBER_OF_TASKS).NumberFormatLocal = "yyyy/m/d;@"
+    
+    sh.Columns("A:A").ColumnWidth = 3
+    sh.Columns("B:B").ColumnWidth = 35
+    sh.Columns("C:C").ColumnWidth = 13
+    sh.Columns("H:H").ColumnWidth = 10
+    sh.Columns("I:I").ColumnWidth = 10
+    
+    'Holiday Format
+    With sh.Range("J8").Resize(NUMBER_OF_TASKS, WEEK * 5)
+        .FormatConditions.Add Type:=xlExpression, Formula1:="=OR(J$7=""S"",NOT(ISNA(VLOOKUP(J$6,$AT:$AT,1,FALSE))))"
+        .FormatConditions(.FormatConditions.Count).SetFirstPriority
+        With .FormatConditions(1).Interior
+            .Pattern = xlLightDown
+            .PatternColor = 11711154
+            .PatternTintAndShade = 0
+        End With
+        .FormatConditions(1).StopIfTrue = False
+    End With
+    
+    With sh.Range("AT7")
+        .Value = "Holidays"
+        With .Interior
+        .Pattern = xlSolid
+        .PatternColorIndex = xlAutomatic
+        .ThemeColor = xlThemeColorLight1
+        .TintAndShade = 0.5
+        .PatternTintAndShade = 0
+        End With
+        With .Font
+            .ThemeColor = xlThemeColorDark1
+            .TintAndShade = 0
+        End With
+    End With
+
+    With sh.Range("AT8").Resize(NUMBER_OF_TASKS)
+        .NumberFormatLocal = "yyyy/m/d;@"
+        With .Interior
+            .Pattern = xlSolid
+            .PatternColorIndex = xlAutomatic
+            .Color = 13434879
+            .TintAndShade = 0
+            .PatternTintAndShade = 0
+        End With
+    End With
+End Sub
